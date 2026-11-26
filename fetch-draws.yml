@@ -1,0 +1,44 @@
+name: Fetch IRCC Express Entry draws
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 min (GitHub may delay runs by a few minutes)
+  workflow_dispatch: {}      # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-draws
+  cancel-in-progress: true
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download IRCC feed
+        run: |
+          URL="https://www.canada.ca/content/dam/ircc/documents/json/ee_rounds_123_en.json"
+          curl -sS --fail --retry 3 --retry-delay 5 --max-time 40 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            -H "Accept: application/json, text/plain, */*" \
+            -H "Accept-Language: en-CA,en;q=0.9" \
+            -H "Referer: https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html" \
+            "$URL" -o new.json
+          # only keep it if it is valid JSON with a non-empty rounds list
+          python3 - <<'PY'
+          import json,sys
+          d=json.load(open("new.json"))
+          assert d.get("rounds"), "no rounds"
+          print("rounds:", len(d["rounds"]), "latest:", d["rounds"][0].get("drawNumber"))
+          PY
+          mkdir -p data && mv new.json data/ee_rounds.json
+
+      - name: Commit if changed
+        run: |
+          git config user.name "draw-bot"
+          git config user.email "draw-bot@users.noreply.github.com"
+          git add data/ee_rounds.json
+          git diff --cached --quiet || (git commit -m "Update draws $(date -u +%FT%TZ)" && git push)
