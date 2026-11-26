@@ -21,7 +21,7 @@ jobs:
       - name: Download IRCC feed
         run: |
           URL="https://www.canada.ca/content/dam/ircc/documents/json/ee_rounds_123_en.json"
-          curl -sS --fail --retry 3 --retry-delay 5 --max-time 40 \
+          curl --http1.1 -sS --fail --retry 3 --retry-delay 5 --max-time 40 \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
             -H "Accept: application/json, text/plain, */*" \
             -H "Accept-Language: en-CA,en;q=0.9" \
